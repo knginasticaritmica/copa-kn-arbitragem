@@ -51,6 +51,9 @@ const OPTIONS = [
   { label: 'Não Ex. (-0.5)', value: 0.5, color: 'bg-red-50 text-red-700 border-red-200', active: 'bg-red-500 text-white border-red-600' }
 ];
 
+// COLE A SUA URL AQUI DENTRO DAS ASPAS SIMPLES:
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnucDokejCGcH73rc3Gl97BRJJyJelhslDtfOwDSbhoP2auVoktmmHDG_QnICcUQ5qKA/exec'
+
 export default function App() {
   const [ginasta, setGinasta] = useState('');
   const [ginastasList, setGinastasList] = useState([]);
@@ -70,34 +73,17 @@ export default function App() {
   // Busca os nomes das ginastas da planilha ao carregar o app
   useEffect(() => {
     const fetchGinastas = async () => {
+      if (SCRIPT_URL === 'COLE_AQUI_A_URL_DO_APP_DA_WEB') {
+        console.warn("Configure a SCRIPT_URL com o link gerado no Google Apps Script.");
+        return;
+      }
       try {
-        // Usando um proxy CORS (allorigins) para contornar o bloqueio de segurança do navegador
-        const targetUrl = 'https://docs.google.com/spreadsheets/export?format=csv&id=1WXWFt_hbSZEAe9RQpxp8iIpXwUo7l4JGmvUP3tntcjg&gid=688340117';
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-        
-        const response = await fetch(proxyUrl);
+        // Bate na API do Google Sheets para ler os nomes
+        const response = await fetch(SCRIPT_URL);
         if (!response.ok) throw new Error('Falha ao buscar planilha');
         
-        const text = await response.text();
-        const rows = text.split('\n');
-        const names = new Set();
-        
-        rows.forEach((row, index) => {
-          if (index === 0) return; // Pula a linha de cabeçalho
-          
-          // Divide a linha por vírgulas, ignorando as vírgulas dentro de aspas duplas
-          const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''));
-          
-          // Pega valores das 3 primeiras colunas que pareçam nomes (texto com mais de 2 letras que não seja número)
-          for (let i = 0; i < Math.min(cols.length, 3); i++) {
-             const val = cols[i];
-             if (val && val.length > 2 && isNaN(Number(val))) {
-               names.add(val);
-             }
-          }
-        });
-        
-        setGinastasList(Array.from(names).sort());
+        const names = await response.json();
+        setGinastasList(names.sort());
       } catch (err) {
         console.error("Não foi possível carregar a lista da planilha. Mantendo input livre.", err);
       }
@@ -165,14 +151,20 @@ export default function App() {
     };
 
     try {
-      // Aqui você fará a integração com o banco de dados / Google Sheets.
-      // Exemplo:
-      // await fetch('/api/salvar-nota', { method: 'POST', body: JSON.stringify(payload) });
+      // Envia os dados para a Planilha do Google!
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8', // Usamos text/plain para evitar bloqueio de CORS no navegador
+        },
+        body: JSON.stringify(payload)
+      });
       
-      console.log("Dados prontos para envio:", payload);
+      const result = await response.json();
       
-      // Simulação de delay de rede
-      await new Promise(r => setTimeout(r, 1200));
+      if (result.status !== 'success') {
+        throw new Error(result.message || 'Erro desconhecido');
+      }
 
       showToast('Avaliação enviada e salva com sucesso!', 'success');
       
