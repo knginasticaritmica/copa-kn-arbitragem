@@ -154,9 +154,9 @@ export default function App() {
         
         {/* Dados da Ginasta */}
         <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-          <h2 className="font-bold text-[#e71d73] text-lg mb-4 flex items-center gap-2">
-            <AlertCircle size={20} /> Identificação
-          </h2>
+         <h2 className="font-bold text-[#e71d73] text-lg mb-4 flex items-center gap-2">
+  <User size={20} /> Identificação
+</h2>
           
           <div className="space-y-4">
             <div>
