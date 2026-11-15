@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, AlertCircle, CheckCircle2, User, UserSquare2, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle2, User, UserSquare2, AlertTriangle, ShieldAlert, Settings, Link } from 'lucide-react';
 
 const CATEGORIAS = {
   "Selecione uma categoria": [],
@@ -51,10 +51,9 @@ const OPTIONS = [
   { label: 'Não Ex. (-0.5)', value: 0.5, color: 'bg-red-50 text-red-700 border-red-200', active: 'bg-red-500 text-white border-red-600' }
 ];
 
-// COLE A SUA URL AQUI DENTRO DAS ASPAS SIMPLES:
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnucDokejCGcH73rc3Gl97BRJJyJelhslDtfOwDSbhoP2auVoktmmHDG_QnICcUQ5qKA/exec'
-
 export default function App() {
+  const [scriptUrl, setScriptUrl] = useState(localStorage.getItem('scriptUrl') || '');
+  const [showConfig, setShowConfig] = useState(!localStorage.getItem('scriptUrl'));
   const [ginasta, setGinasta] = useState('');
   const [ginastasList, setGinastasList] = useState([]);
   const [arbitro, setArbitro] = useState('');
@@ -73,24 +72,31 @@ export default function App() {
   // Busca os nomes das ginastas da planilha ao carregar o app
   useEffect(() => {
     const fetchGinastas = async () => {
-      if (SCRIPT_URL === 'COLE_AQUI_A_URL_DO_APP_DA_WEB') {
-        console.warn("Configure a SCRIPT_URL com o link gerado no Google Apps Script.");
-        return;
-      }
+      if (!scriptUrl) return;
+
       try {
-        // Bate na API do Google Sheets para ler os nomes
-        const response = await fetch(SCRIPT_URL);
+        const response = await fetch(scriptUrl, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+        
         if (!response.ok) throw new Error('Falha ao buscar planilha');
         
         const names = await response.json();
-        setGinastasList(names.sort());
+        if(Array.isArray(names)) {
+          setGinastasList(names.sort());
+          if(names.length > 0) {
+            showToast('Lista de ginastas atualizada!', 'success');
+          }
+        }
       } catch (err) {
-        console.error("Não foi possível carregar a lista da planilha. Mantendo input livre.", err);
+        console.error("Erro ao carregar a lista:", err);
+        showToast('Erro de conexão. O link está correto?', 'error');
       }
     };
     
     fetchGinastas();
-  }, []);
+  }, [scriptUrl]);
 
   const elementosAtuais = CATEGORIAS[categoria] || [];
 
@@ -127,7 +133,6 @@ export default function App() {
       return;
     }
 
-    // VALIDAÇÃO DE DADOS: Verifica se a ginasta está na lista da planilha
     if (ginastasList.length > 0 && !ginastasList.includes(ginasta)) {
       showToast('Nome inválido. Selecione uma ginasta da lista.', 'error');
       return;
@@ -135,7 +140,6 @@ export default function App() {
 
     setIsSubmitting(true);
 
-    // Montar o payload (objeto) que será enviado para o banco de dados (ex: Planilha do Google)
     const payload = {
       timestamp: new Date().toISOString(),
       arbitro,
@@ -151,12 +155,19 @@ export default function App() {
     };
 
     try {
-      // Envia os dados para a Planilha do Google!
-      const response = await fetch(SCRIPT_URL, {
+      if (!scriptUrl) {
+        showToast('Configure o link da planilha no ícone de engrenagem!', 'error');
+        setShowConfig(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const response = await fetch(scriptUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'text/plain;charset=utf-8', // Usamos text/plain para evitar bloqueio de CORS no navegador
+          'Content-Type': 'text/plain;charset=utf-8',
         },
+        redirect: 'follow',
         body: JSON.stringify(payload)
       });
       
@@ -168,7 +179,6 @@ export default function App() {
 
       showToast('Avaliação enviada e salva com sucesso!', 'success');
       
-      // Limpar formulário para a próxima ginasta
       setGinasta('');
       setCategoria('Selecione uma categoria');
       setDeducoes({});
@@ -191,14 +201,57 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-32">
       {/* HEADER */}
       <header className="bg-[#e71d73] text-white shadow-lg sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-center relative">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between relative">
+          <div className="w-10"></div> {/* Spacer esquerdo */}
           <h1 className="text-2xl font-bold tracking-wider text-center uppercase drop-shadow-md">
             Copa <span className="text-yellow-300">KN</span> - Arbitragem
           </h1>
+          <button 
+            onClick={() => setShowConfig(!showConfig)} 
+            className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+            title="Configurar Integração"
+          >
+            <Settings size={22} />
+          </button>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto p-4 mt-4 space-y-6">
+        
+        {/* CONFIGURAÇÃO DO LINK (Aparece se clicar na engrenagem ou se não tiver link) */}
+        {(!scriptUrl || showConfig) && (
+          <section className="bg-yellow-50 rounded-xl shadow-sm border-2 border-yellow-400 p-5 animate-in fade-in slide-in-from-top-4">
+            <h2 className="font-bold text-yellow-800 flex items-center gap-2 mb-3">
+              <Link size={20} /> Integração com Google Sheets
+            </h2>
+            <p className="text-sm text-yellow-700 mb-4">
+              Cole abaixo o link (URL) do seu Google Apps Script para habilitar o banco de dados.
+            </p>
+            <div className="flex flex-col md:flex-row gap-3">
+              <input 
+                type="text" 
+                placeholder="https://script.google.com/macros/s/..."
+                defaultValue={scriptUrl}
+                id="url-input"
+                className="flex-1 border-2 border-yellow-300 rounded-lg p-3 outline-none focus:border-yellow-500 font-mono text-sm"
+              />
+              <button 
+                onClick={() => {
+                  const val = document.getElementById('url-input').value.trim();
+                  if(val) {
+                    setScriptUrl(val);
+                    localStorage.setItem('scriptUrl', val);
+                    setShowConfig(false);
+                  }
+                }}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold px-6 py-3 rounded-lg transition-colors whitespace-nowrap"
+              >
+                Salvar Link
+              </button>
+            </div>
+          </section>
+        )}
+
         {/* INFO CARD */}
         <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -210,7 +263,7 @@ export default function App() {
                 type="text" 
                 value={ginasta}
                 onChange={(e) => setGinasta(e.target.value)}
-                placeholder={ginastasList.length > 0 ? "Digite para buscar ou selecione..." : "Ex: Maria Silva"}
+                placeholder={ginastasList.length > 0 ? "Digite para buscar..." : "Aguardando planilha..."}
                 list="ginastas-list"
                 className={`w-full border-2 rounded-lg p-3 outline-none transition-colors text-lg ${
                   ginasta && ginastasList.length > 0 && !ginastasList.includes(ginasta) 
