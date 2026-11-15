@@ -1,422 +1,298 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Save, AlertCircle, CheckCircle2, User, UserSquare2, AlertTriangle, ShieldAlert, Settings, Link } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, AlertCircle, Send, User, LogOut, ChevronDown } from 'lucide-react';
 
-const CATEGORIAS = {
-  "Selecione uma categoria": [],
-  "3 a 4 anos": [
-    "Passo de dança 1", "Salto Galope", "Passo de dança 2", "Passo de dança 3",
-    "Equilíbrio Passê", "Salto Parafuso 90º", "Pré acrobático", "Expressão facial"
-  ],
-  "5 a 6 anos": [
-    "Passo de dança 1", "Passo de dança 2", "Salto galope", "Chainê",
-    "Chassê lateral", "Onda lateral", "Equilíbrio Passê", "Passo de dança 3",
-    "Pivô Passê", "Expressão facial"
-  ],
-  "7 a 9 anos": [
-    "Passo de dança 1", "Equilíbrio Passê", "Onda Lateral", "Passo de dança 2",
-    "Chainê", "Chassê lateral", "Pivô passê 360º", "Cambalhota",
-    "Passo de dança 3", "Salto galope", "Esquipe", "Passo de dança 4", "Expressão facial"
-  ],
-  "10 a 13 anos": [
-    "Passo de dança 1", "Pivô Passê 360º", "Esquipe", "Onda lateral",
-    "Chainê", "Estrelinha", "Rolamento", "Passo de dança 2",
-    "Salto corsa ou espacate", "Passo de dança 3", "Equilíbrio Passê com relevê", "Expressão facial"
-  ],
-  "14+ anos": [
-    "Passo de dança 1", "Passo de dança 2", "Equilíbrio Passê com relevê", "Estrelinha",
-    "rolamento", "Passo de dança 3", "Salto Corsa", "Onda lateral",
-    "Chainê", "Pivô Passê 360º", "Passo de dança 4", "Avião", "Expressão facial"
-  ],
-  "INTERMEDIÁRIO 5 a 6 anos": [
-    "Passo de dança 1", "Passo de dança 2", "Salto galope", "Chainê",
-    "Chassê lateral", "Onda lateral", "Equilíbrio Passê", "Passo de dança 3",
-    "Pivô Passê", "Expressão facial"
-  ],
-  "INTERMEDIÁRIO 7 a 9 anos": [
-    "Passo de Dança 1", "Equilíbrio ‘Y’", "Onda lateral", "Passo de dança 2",
-    "Chassê lateral", "Pivô Passê 360", "Rolamento", "Passo de dança 3",
-    "Salto corsa", "Esquipe", "Expressão facial"
-  ],
-  "INTERMEDIÁRIO 10 a 13 anos": [
-    "Passo de dança 1", "Pivô Passê", "Esquipe", "Onda lateral",
-    "Chainê", "Estrelinha", "Rolamento", "Passo de dança 3",
-    "Salto espacate", "Passo de dança 4", "Equilíbrio ‘Y’", "Expressão facial"
-  ]
-};
+// ⚠️ ATENÇÃO: COLOQUE SEU LINK DO GOOGLE AQUI ENTRE AS ASPAS NOVAMENTE
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzB9LxmFjOicGAPZS8qqOwqUepQlcem1tdAQik_A_PIktd2snQAcUQK3AYQYMnxnW2BIA/exec';
+
+const CATEGORIAS = [
+  { nome: '3 a 4 anos', elementos: ['Passo de dança 1', 'Salto Galope', 'Passo de dança 2', 'Passo de dança 3', 'Equilíbrio Passê', 'Salto Parafuso 90º', 'Pré acrobático', 'Expressão facial'] },
+  { nome: '5 a 6 anos', elementos: ['Passo de dança 1', 'Passo de dança 2', 'Salto galope', 'Chainê', 'Chassê lateral', 'Onda lateral', 'Equilíbrio Passê', 'Passo de dança 3', 'Pivô Passê', 'Expressão facial'] },
+  { nome: '7 a 9 anos', elementos: ['Passo de dança 1', 'Equilíbrio Passê', 'Onda Lateral', 'Passo de dança 2', 'Chainê', 'Chassê lateral', 'Pivô passê 360º', 'Cambalhota', 'Passo de dança 3', 'Salto galope', 'Esquipe', 'Passo de dança 4', 'Expressão facial'] },
+  { nome: '10 a 13 anos', elementos: ['Passo de dança 1', 'Pivô Passê 360º', 'Esquipe', 'Onda lateral', 'Chainê', 'Estrelinha', 'Rolamento', 'Passo de dança 2', 'Salto corsa ou espacate', 'Passo de dança 3', 'Equilíbrio Passê com relevê', 'Expressão facial'] },
+  { nome: '14+ anos', elementos: ['Passo de dança 1', 'Passo de dança 2', 'Equilíbrio Passê com relevê', 'Estrelinha', 'rolamento', 'Passo de dança 3', 'Salto Corsa', 'Onda lateral', 'Chainê', 'Pivô Passê 360º', 'Passo de dança 4', 'Avião', 'Expressão facial'] },
+  { nome: 'INTERMEDIÁRIO 5 a 6 anos', elementos: ['Passo de dança 1', 'Passo de dança 2', 'Salto galope', 'Chainê', 'Chassê lateral', 'Onda lateral', 'Equilíbrio Passê', 'Passo de dança 3', 'Pivô Passê', 'Expressão facial'] },
+  { nome: 'INTERMEDIÁRIO 7 a 9 anos', elementos: ['Passo de Dança 1', 'Equilíbrio ‘Y’', 'Onda lateral', 'Passo de dança 2', 'Chassê lateral', 'Pivô Passê 360', 'Rolamento', 'Passo de dança 3', 'Salto corsa', 'Esquipe', 'Expressão facial'] },
+  { nome: 'INTERMEDIÁRIO 10 a 13 anos', elementos: ['Passo de dança 1', 'Pivô Passê', 'Esquipe', 'Onda lateral', 'Chainê', 'Estrelinha', 'Rolamento', 'Passo de dança 3', 'Salto espacate', 'Passo de dança 4', 'Equilíbrio ‘Y’', 'Expressão facial'] }
+];
 
 const OPTIONS = [
   { label: 'Perfeito', value: 0, color: 'bg-green-100 text-green-700 border-green-300', active: 'bg-green-500 text-white border-green-600' },
-  { label: 'Pequena (-0.1)', value: 0.1, color: 'bg-yellow-50 text-yellow-700 border-yellow-200', active: 'bg-yellow-500 text-white border-yellow-600' },
-  { label: 'Média (-0.3)', value: 0.3, color: 'bg-orange-50 text-orange-700 border-orange-200', active: 'bg-orange-500 text-white border-orange-600' },
-  { label: 'Não Ex. (-0.5)', value: 0.5, color: 'bg-red-50 text-red-700 border-red-200', active: 'bg-red-500 text-white border-red-600' }
+  { label: 'Falha Pequena (-0.1)', value: 0.1, color: 'bg-yellow-100 text-yellow-700 border-yellow-300', active: 'bg-yellow-500 text-white border-yellow-600' },
+  { label: 'Falha Média (-0.3)', value: 0.3, color: 'bg-orange-100 text-orange-700 border-orange-300', active: 'bg-orange-500 text-white border-orange-600' },
+  { label: 'Falha Grande / Não Exec. (-0.5)', value: 0.5, color: 'bg-red-100 text-red-700 border-red-300', active: 'bg-red-500 text-white border-red-600' }
 ];
 
 export default function App() {
-  const [scriptUrl, setScriptUrl] = useState(localStorage.getItem('scriptUrl') || '');
-  const [showConfig, setShowConfig] = useState(!localStorage.getItem('scriptUrl'));
   const [ginasta, setGinasta] = useState('');
-  const [ginastasList, setGinastasList] = useState([]);
   const [arbitro, setArbitro] = useState('');
-  const [categoria, setCategoria] = useState('Selecione uma categoria');
-  const [deducoes, setDeducoes] = useState({});
+  const [categoria, setCategoria] = useState(CATEGORIAS[0]);
+  const [notas, setNotas] = useState({});
   const [saidaArea, setSaidaArea] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [toast, setToast] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [ginastasList, setGinastasList] = useState([]);
+  const [enviando, setEnviando] = useState(false);
+  const [sucesso, setSucesso] = useState(false);
 
-  // Zera as deduções sempre que a categoria mudar
   useEffect(() => {
-    setDeducoes({});
-    setSaidaArea(false);
-  }, [categoria]);
+    carregarGinastas();
+  }, []);
 
-  // Busca os nomes das ginastas da planilha ao carregar o app
-  useEffect(() => {
-    const fetchGinastas = async () => {
-      if (!scriptUrl) return;
-
-      try {
-        const response = await fetch(scriptUrl, {
-          method: 'GET',
-          redirect: 'follow'
-        });
-        
-        if (!response.ok) throw new Error('Falha ao buscar planilha');
-        
-        const names = await response.json();
-        if(Array.isArray(names)) {
-          setGinastasList(names.sort());
-          if(names.length > 0) {
-            showToast('Lista de ginastas atualizada!', 'success');
-          }
-        }
-      } catch (err) {
-        console.error("Erro ao carregar a lista:", err);
-        showToast('Erro de conexão. O link está correto?', 'error');
-      }
-    };
-    
-    fetchGinastas();
-  }, [scriptUrl]);
-
-  const elementosAtuais = CATEGORIAS[categoria] || [];
-
-  const handleDeducao = (index, valor) => {
-    setDeducoes(prev => ({
-      ...prev,
-      [index]: valor
-    }));
+  const carregarGinastas = async () => {
+    try {
+      const response = await fetch(SCRIPT_URL, { redirect: 'follow' });
+      const data = await response.json();
+      setGinastasList(data);
+    } catch (error) {
+      console.error("Erro ao carregar lista de ginastas", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const totais = useMemo(() => {
-    let deducaoElementos = 0;
-    // Soma das deduções dos elementos
-    Object.values(deducoes).forEach(val => {
-      deducaoElementos += val;
-    });
+  const handleNota = (elemento, valor) => {
+    setNotas(prev => ({ ...prev, [elemento]: valor }));
+  };
+
+  const calcularDeducao = () => {
+    let total = 0;
+    Object.values(notas).forEach(v => { total += v; });
+    if (saidaArea) total += 1.0;
+    return total;
+  };
+
+  const handleSubmit = async () => {
+    if (!ginasta) return alert("Selecione a ginasta!");
     
-    // Penalidade por saída de área (1.0)
-    const deducaoSaidaArea = saidaArea ? 1.0 : 0;
-    
-    const deducaoTotal = deducaoElementos + deducaoSaidaArea;
-    const notaFinal = Math.max(0, 20.0 - deducaoTotal);
-
-    return {
-      deducaoTotal,
-      notaFinal
-    };
-  }, [deducoes, saidaArea]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!ginasta || !arbitro || categoria === 'Selecione uma categoria') {
-      showToast('Por favor, preencha nome da ginasta, do árbitro e escolha a categoria.', 'error');
-      return;
-    }
-
+    // Validação estrita da lista
     if (ginastasList.length > 0 && !ginastasList.includes(ginasta)) {
-      showToast('Nome inválido. Selecione uma ginasta da lista.', 'error');
-      return;
+      return alert("⚠️ Atenção: O nome da ginasta deve ser exatamente um dos nomes da lista da planilha. Selecione-a no campo.");
+    }
+    
+    if (Object.keys(notas).length !== categoria.elementos.length) {
+      return alert("Preencha a nota de todos os elementos antes de enviar.");
     }
 
-    setIsSubmitting(true);
-
+    setEnviando(true);
+    const deducao = calcularDeducao();
     const payload = {
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toLocaleString('pt-BR'),
       arbitro,
       ginasta,
-      categoria,
-      deducaoTotal: totais.deducaoTotal.toFixed(2),
-      notaFinal: totais.notaFinal.toFixed(2),
+      categoria: categoria.nome,
+      notaFinal: (20 - deducao).toFixed(2),
+      deducaoTotal: deducao.toFixed(2),
       saidaDeArea: saidaArea ? "Sim (-1.0)" : "Não",
-      detalhesDeducoes: elementosAtuais.map((el, index) => ({
-        elemento: el,
-        deducao: deducoes[index] || 0
-      }))
+      detalhesDeducoes: notas
     };
 
     try {
-      if (!scriptUrl) {
-        showToast('Configure o link da planilha no ícone de engrenagem!', 'error');
-        setShowConfig(true);
-        setIsSubmitting(false);
-        return;
-      }
-
-      const response = await fetch(scriptUrl, {
+      await fetch(SCRIPT_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-        redirect: 'follow',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
       });
-      
-      const result = await response.json();
-      
-      if (result.status !== 'success') {
-        throw new Error(result.message || 'Erro desconhecido');
-      }
-
-      showToast('Avaliação enviada e salva com sucesso!', 'success');
-      
-      setGinasta('');
-      setCategoria('Selecione uma categoria');
-      setDeducoes({});
-      setSaidaArea(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-
+      setSucesso(true);
+      setTimeout(() => {
+        setSucesso(false);
+        setGinasta('');
+        setNotas({});
+        setSaidaArea(false);
+        window.scrollTo(0, 0);
+      }, 3000);
     } catch (error) {
-      showToast('Erro ao salvar avaliação. Verifique a conexão.', 'error');
+      alert("Erro ao enviar dados. Verifique a internet e tente novamente.");
     } finally {
-      setIsSubmitting(false);
+      setEnviando(false);
     }
   };
 
-  const showToast = (message, type) => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
+  if (!arbitro) {
+    return (
+      <div className="min-h-screen bg-pink-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
+          <div className="flex justify-center mb-6">
+            {/* Logo na tela de Login */}
+            <img src="/logo-kn.png" alt="KN Ginástica Rítmica" className="h-20 w-auto object-contain bg-white rounded-lg" />
+          </div>
+          <h1 className="text-2xl font-bold text-center text-[#e71d73] mb-6">Acesso da Arbitragem</h1>
+          <form onSubmit={(e) => { e.preventDefault(); const val = e.target.nome.value; if(val) setArbitro(val); }}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Qual é o seu nome (Árbitro)?</label>
+            <input type="text" name="nome" required className="w-full border-2 border-pink-200 rounded-xl p-3 focus:border-[#e71d73] outline-none" placeholder="Ex: Maria" />
+            <button type="submit" className="w-full mt-6 bg-[#e71d73] text-white p-3 rounded-xl font-bold hover:bg-pink-700 transition">Entrar</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-32">
-      {/* HEADER */}
-      <header className="bg-[#e71d73] text-white shadow-lg sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between relative">
-          <div className="w-10"></div> {/* Spacer esquerdo */}
-          <h1 className="text-2xl font-bold tracking-wider text-center uppercase drop-shadow-md">
-            Copa <span className="text-yellow-300">KN</span> - Arbitragem
+    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800">
+      
+      {/* Cabeçalho */}
+      <header className="bg-[#e71d73] text-white p-4 shadow-md sticky top-0 z-20 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          {/* LOGOMARCA AQUI */}
+          <div className="bg-white p-1 rounded-lg shadow-sm">
+            <img 
+              src="/logo-kn.png" 
+              alt="Logo KN" 
+              className="h-10 w-auto object-contain" 
+            />
+          </div>
+          <h1 className="text-xl font-bold leading-tight">
+            Copa <span className="text-white">KN</span><br/>
+            <span className="text-sm font-normal text-pink-200">Arbitragem</span>
           </h1>
-          <button 
-            onClick={() => setShowConfig(!showConfig)} 
-            className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
-            title="Configurar Integração"
-          >
-            <Settings size={22} />
-          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <User size={16} className="text-pink-200" />
+          <span className="text-sm font-medium truncate max-w-[80px]">{arbitro}</span>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 mt-4 space-y-6">
+      <main className="max-w-3xl mx-auto p-4 space-y-6">
         
-        {/* CONFIGURAÇÃO DO LINK (Aparece se clicar na engrenagem ou se não tiver link) */}
-        {(!scriptUrl || showConfig) && (
-          <section className="bg-yellow-50 rounded-xl shadow-sm border-2 border-yellow-400 p-5 animate-in fade-in slide-in-from-top-4">
-            <h2 className="font-bold text-yellow-800 flex items-center gap-2 mb-3">
-              <Link size={20} /> Integração com Google Sheets
-            </h2>
-            <p className="text-sm text-yellow-700 mb-4">
-              Cole abaixo o link (URL) do seu Google Apps Script para habilitar o banco de dados.
-            </p>
-            <div className="flex flex-col md:flex-row gap-3">
-              <input 
-                type="text" 
-                placeholder="https://script.google.com/macros/s/..."
-                defaultValue={scriptUrl}
-                id="url-input"
-                className="flex-1 border-2 border-yellow-300 rounded-lg p-3 outline-none focus:border-yellow-500 font-mono text-sm"
-              />
-              <button 
-                onClick={() => {
-                  const val = document.getElementById('url-input').value.trim();
-                  if(val) {
-                    setScriptUrl(val);
-                    localStorage.setItem('scriptUrl', val);
-                    setShowConfig(false);
-                  }
-                }}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold px-6 py-3 rounded-lg transition-colors whitespace-nowrap"
-              >
-                Salvar Link
-              </button>
+        {/* Dados da Ginasta */}
+        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <h2 className="font-bold text-[#e71d73] text-lg mb-4 flex items-center gap-2">
+            <AlertCircle size={20} /> Identificação
+          </h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Categoria da Apresentação</label>
+              <div className="relative">
+                <select 
+                  className="w-full appearance-none border-2 border-gray-200 rounded-xl p-3 bg-gray-50 focus:border-[#e71d73] focus:bg-white outline-none font-medium"
+                  onChange={(e) => {
+                    setCategoria(CATEGORIAS[e.target.value]);
+                    setNotas({});
+                  }}
+                >
+                  {CATEGORIAS.map((cat, idx) => (
+                    <option key={idx} value={idx}>{cat.nome}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" />
+              </div>
             </div>
-          </section>
-        )}
 
-        {/* INFO CARD */}
-        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <UserSquare2 size={16} className="text-[#e71d73]"/> Nome da Ginasta
-              </label>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Nome da Ginasta</label>
               <input 
                 type="text" 
+                list="lista-ginastas"
                 value={ginasta}
                 onChange={(e) => setGinasta(e.target.value)}
-                placeholder={ginastasList.length > 0 ? "Digite para buscar..." : "Aguardando planilha..."}
-                list="ginastas-list"
-                className={`w-full border-2 rounded-lg p-3 outline-none transition-colors text-lg ${
+                className={`w-full border-2 rounded-xl p-3 focus:outline-none transition ${
                   ginasta && ginastasList.length > 0 && !ginastasList.includes(ginasta) 
-                    ? 'border-red-400 focus:border-red-500 bg-red-50 text-red-700' 
-                    : 'border-gray-200 focus:border-[#e71d73]'
+                  ? 'border-red-400 bg-red-50' 
+                  : 'border-gray-200 focus:border-[#e71d73] bg-gray-50 focus:bg-white'
                 }`}
+                placeholder={loading ? "Carregando planilha..." : "Digite para buscar ou selecione..."}
+                disabled={loading}
               />
-              {ginasta && ginastasList.length > 0 && !ginastasList.includes(ginasta) && (
-                <p className="text-xs font-bold text-red-500 mt-1">
-                  ⚠ Atenção: Selecione um nome válido da lista.
-                </p>
-              )}
-              <datalist id="ginastas-list">
+              <datalist id="lista-ginastas">
                 {ginastasList.map((nome, idx) => (
                   <option key={idx} value={nome} />
                 ))}
               </datalist>
-            </div>
-            
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <User size={16} className="text-[#e71d73]"/> Nome do Árbitro
-              </label>
-              <input 
-                type="text" 
-                value={arbitro}
-                onChange={(e) => setArbitro(e.target.value)}
-                placeholder="Seu nome"
-                className="w-full border-2 border-gray-200 rounded-lg p-3 outline-none focus:border-[#e71d73] transition-colors text-lg"
-              />
-            </div>
-
-            <div className="space-y-1 md:col-span-2">
-              <label className="text-sm font-semibold text-gray-600">Categoria</label>
-              <select 
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-                className="w-full border-2 border-gray-200 rounded-lg p-3 outline-none focus:border-[#e71d73] transition-colors text-lg bg-white font-medium text-[#e71d73]"
-              >
-                {Object.keys(CATEGORIAS).map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+              {ginasta && ginastasList.length > 0 && !ginastasList.includes(ginasta) && (
+                <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1">
+                  <AlertCircle size={12} /> Selecione um nome válido da lista.
+                </p>
+              )}
             </div>
           </div>
         </section>
 
-        {/* ELEMENTOS (Ficha de avaliação) */}
-        {categoria !== 'Selecione uma categoria' && (
-          <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-100 px-5 py-3 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="font-bold text-gray-700 uppercase text-sm">Elementos da Série</h2>
-              <span className="text-xs bg-[#e71d73] text-white px-2 py-1 rounded-full font-bold">Obrigatórios</span>
-            </div>
-            
-            <div className="divide-y divide-gray-100">
-              {elementosAtuais.map((elemento, index) => {
-                const selectedValue = deducoes[index] || 0;
-                
-                return (
-                  <div key={index} className="p-4 hover:bg-gray-50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <span className="font-medium text-gray-800 text-lg md:text-base flex-1">
-                      {index + 1}. {elemento}
-                    </span>
-                    
-                    <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                      {OPTIONS.map((opt) => {
-                        const isSelected = selectedValue === opt.value;
-                        return (
-                          <button
-                            key={opt.label}
-                            type="button"
-                            onClick={() => handleDeducao(index, opt.value)}
-                            className={`flex-1 md:flex-none whitespace-nowrap px-4 py-3 rounded-lg border-2 font-bold text-sm transition-all transform active:scale-95 touch-manipulation ${
-                              isSelected 
-                                ? opt.active + ' shadow-sm'
-                                : opt.color + ' opacity-70 hover:opacity-100 bg-white'
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* SAÍDA DE ÁREA */}
-            <div className="p-5 bg-red-50 border-t-2 border-red-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <ShieldAlert className="text-red-500" size={24}/>
-                <div>
-                  <h3 className="font-bold text-red-700 text-lg">Saída de Área</h3>
-                  <p className="text-sm text-red-600">Dedução fixa de -1,00 ponto</p>
-                </div>
+        {/* Avaliação */}
+        <section className="space-y-4">
+          <h2 className="font-bold text-[#e71d73] text-lg px-2 flex justify-between items-end">
+            Série Obrigatória
+            <span className="text-sm font-normal text-gray-500">{categoria.elementos.length} elementos</span>
+          </h2>
+          
+          {categoria.elementos.map((elemento, index) => (
+            <div key={index} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+              <p className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <span className="bg-pink-100 text-[#e71d73] w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                  {index + 1}
+                </span>
+                {elemento}
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {OPTIONS.map(opt => {
+                  const isSelected = notas[elemento] === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleNota(elemento, opt.value)}
+                      className={`p-2 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center justify-center gap-1 min-h-[60px] ${
+                        isSelected ? opt.active : opt.color
+                      }`}
+                    >
+                      {isSelected && <Check size={16} />}
+                      <span className="text-center leading-tight">{opt.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <button
-                type="button"
-                onClick={() => setSaidaArea(!saidaArea)}
-                className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none ${saidaArea ? 'bg-red-500' : 'bg-gray-300'}`}
-              >
-                <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${saidaArea ? 'translate-x-9' : 'translate-x-1'}`} />
-              </button>
             </div>
-          </section>
-        )}
+          ))}
+        </section>
+
+        {/* Penalidades Extras */}
+        <section className="bg-red-50 p-5 rounded-2xl border-2 border-red-100">
+          <h2 className="font-bold text-red-700 text-lg mb-3">Penalidades Gerais</h2>
+          <label className="flex items-center gap-3 p-3 bg-white rounded-xl border border-red-200 cursor-pointer hover:bg-red-50 transition">
+            <input 
+              type="checkbox" 
+              checked={saidaArea} 
+              onChange={(e) => setSaidaArea(e.target.checked)}
+              className="w-6 h-6 text-red-600 rounded border-gray-300 focus:ring-red-500" 
+            />
+            <span className="font-medium text-gray-800">Saída da área de apresentação (-1.00)</span>
+          </label>
+        </section>
       </main>
 
-      {/* SUMMARY FOOTER (Sticky) */}
-      <div className="fixed bottom-0 w-full bg-white border-t border-gray-200 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] z-40 p-4">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-6 w-full md:w-auto justify-around md:justify-start">
-            <div className="text-center md:text-left">
-              <span className="block text-xs font-bold text-gray-400 uppercase">Partida</span>
-              <span className="text-lg font-bold text-gray-700">20.00</span>
-            </div>
-            <div className="text-center md:text-left">
-              <span className="block text-xs font-bold text-red-400 uppercase">Deduções</span>
-              <span className="text-lg font-bold text-red-600">-{totais.deducaoTotal.toFixed(2)}</span>
-            </div>
-            <div className="text-center md:text-left">
-              <span className="block text-xs font-bold text-[#e71d73] uppercase">Nota Final</span>
-              <span className="text-3xl font-black text-[#e71d73] drop-shadow-sm">
-                {totais.notaFinal.toFixed(2)}
-              </span>
-            </div>
+      {/* Barra de Rodapé / Confirmação Fixa */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+        <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-center sm:text-left flex-1">
+            <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Nota Final Calculada</p>
+            <p className="text-3xl font-black text-[#e71d73]">
+              {(20 - calcularDeducao()).toFixed(2)}
+            </p>
           </div>
-
-          <button
+          
+          <button 
             onClick={handleSubmit}
-            disabled={isSubmitting || categoria === 'Selecione uma categoria'}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-[#e71d73] to-[#c2145d] text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+            disabled={enviando}
+            className={`w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all text-white ${
+              enviando ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 shadow-lg hover:shadow-green-500/30'
+            }`}
           >
-            {isSubmitting ? (
-              <span className="animate-pulse flex items-center gap-2">Enviando...</span>
-            ) : (
+            {enviando ? 'Enviando...' : (
               <>
-                <Save size={24} />
-                Enviar Avaliação
+                <Send size={20} />
+                Registrar Nota
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* TOAST NOTIFICATION */}
-      {toast && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4">
-          <div className={`flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl font-bold text-white ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
-            {toast.type === 'success' ? <CheckCircle2 size={24} /> : <AlertTriangle size={24} />}
-            {toast.message}
+      {/* Alerta de Sucesso Overlay */}
+      {sucesso && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check size={40} className="text-green-500" />
+            </div>
+            <h3 className="text-2xl font-black text-gray-800 mb-2">Nota Registrada!</h3>
+            <p className="text-gray-600 font-medium">Os dados foram enviados para a planilha oficial com sucesso.</p>
           </div>
         </div>
       )}
