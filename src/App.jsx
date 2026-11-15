@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Check, AlertCircle, Send, User, LogOut, ChevronDown } from 'lucide-react';
+import { Check, User, Send, AlertCircle, Lock } from 'lucide-react';
 
-// ⚠️ ATENÇÃO: COLOQUE SEU LINK DO GOOGLE AQUI ENTRE AS ASPAS NOVAMENTE
+// ⚠️ COLE AQUI SEU LINK DO GOOGLE APPS SCRIPT ENTRE AS ASPAS:
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzB9LxmFjOicGAPZS8qqOwqUepQlcem1tdAQik_A_PIktd2snQAcUQK3AYQYMnxnW2BIA/exec';
 
 const CATEGORIAS = [
@@ -25,11 +25,11 @@ const OPTIONS = [
 export default function App() {
   const [ginasta, setGinasta] = useState('');
   const [arbitro, setArbitro] = useState('');
-  const [categoria, setCategoria] = useState(CATEGORIAS[0]);
+  const [categoria, setCategoria] = useState(null);
   const [notas, setNotas] = useState({});
   const [saidaArea, setSaidaArea] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [ginastasList, setGinastasList] = useState([]);
+  const [ginastasData, setGinastasData] = useState({}); // Agora guarda o mapeamento completo Nome -> Categoria
   const [enviando, setEnviando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
 
@@ -41,11 +41,34 @@ export default function App() {
     try {
       const response = await fetch(SCRIPT_URL, { redirect: 'follow' });
       const data = await response.json();
-      setGinastasList(data);
+      setGinastasData(data);
     } catch (error) {
-      console.error("Erro ao carregar lista de ginastas", error);
+      console.error("Erro ao carregar dados da planilha", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const nomesGinastas = Object.keys(ginastasData);
+
+  const handleMudarGinasta = (e) => {
+    const nomeSelecionado = e.target.value;
+    setGinasta(nomeSelecionado);
+
+    // Se o nome existe no banco de dados, puxa e trava a categoria automaticamente
+    if (ginastasData[nomeSelecionado]) {
+      const nomeCategoriaPlanilha = ginastasData[nomeSelecionado];
+      const categoriaEncontrada = CATEGORIAS.find(c => c.nome.trim().toLowerCase() === nomeCategoriaPlanilha.trim().toLowerCase());
+      
+      if (categoriaEncontrada) {
+        setCategoria(categoriaEncontrada);
+        setNotas({});
+      } else {
+        alert(`Atenção: A categoria "${nomeCategoriaPlanilha}" escrita na planilha não bate com as opções do sistema. Verifique a digitação do cabeçalho.`);
+      }
+    } else {
+      setCategoria(null);
+      setNotas({});
     }
   };
 
@@ -63,9 +86,12 @@ export default function App() {
   const handleSubmit = async () => {
     if (!ginasta) return alert("Selecione a ginasta!");
     
-    // Validação estrita da lista
-    if (ginastasList.length > 0 && !ginastasList.includes(ginasta)) {
-      return alert("⚠️ Atenção: O nome da ginasta deve ser exatamente um dos nomes da lista da planilha. Selecione-a no campo.");
+    if (nomesGinastas.length > 0 && !nomesGinastas.includes(ginasta)) {
+      return alert("⚠️ Atenção: Selecione um nome exato da lista.");
+    }
+
+    if (!categoria) {
+      return alert("A categoria da ginasta não foi carregada corretamente.");
     }
     
     if (Object.keys(notas).length !== categoria.elementos.length) {
@@ -95,12 +121,13 @@ export default function App() {
       setTimeout(() => {
         setSucesso(false);
         setGinasta('');
+        setCategoria(null);
         setNotas({});
         setSaidaArea(false);
         window.scrollTo(0, 0);
       }, 3000);
     } catch (error) {
-      alert("Erro ao enviar dados. Verifique a internet e tente novamente.");
+      alert("Erro ao enviar dados. Verifique a conexão.");
     } finally {
       setEnviando(false);
     }
@@ -111,9 +138,12 @@ export default function App() {
       <div className="min-h-screen bg-pink-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
           <div className="flex justify-center mb-6">
-            {/* Logo na tela de Login */}
-            <img src="/logo-kn.png" alt="KN Ginástica Rítmica" className="h-24 w-auto object-contain bg-white rounded-lg p-2" />
-            </div>
+            <img 
+              src="/logo-kn.png" 
+              alt="KN Ginástica Rítmica" 
+              className="h-24 w-auto object-contain bg-white rounded-lg p-2" 
+            />
+          </div>
           <h1 className="text-2xl font-bold text-center text-[#e71d73] mb-6">Acesso da Arbitragem</h1>
           <form onSubmit={(e) => { e.preventDefault(); const val = e.target.nome.value; if(val) setArbitro(val); }}>
             <label className="block text-sm font-medium text-gray-700 mb-2">Qual é o seu nome (Árbitro)?</label>
@@ -128,10 +158,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800">
       
-      {/* Cabeçalho */}
       <header className="bg-[#e71d73] text-white p-4 shadow-md sticky top-0 z-20 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          {/* LOGOMARCA AQUI */}
           <div className="bg-white p-1 rounded-lg shadow-sm">
             <img 
               src="/logo-kn.png" 
@@ -152,40 +180,22 @@ export default function App() {
 
       <main className="max-w-3xl mx-auto p-4 space-y-6">
         
-        {/* Dados da Ginasta */}
         <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-         <h2 className="font-bold text-[#e71d73] text-lg mb-4 flex items-center gap-2">
-  <User size={20} /> Identificação
-</h2>
+          <h2 className="font-bold text-[#e71d73] text-lg mb-4 flex items-center gap-2">
+            <User size={20} /> Identificação
+          </h2>
           
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Categoria da Apresentação</label>
-              <div className="relative">
-                <select 
-                  className="w-full appearance-none border-2 border-gray-200 rounded-xl p-3 bg-gray-50 focus:border-[#e71d73] focus:bg-white outline-none font-medium"
-                  onChange={(e) => {
-                    setCategoria(CATEGORIAS[e.target.value]);
-                    setNotas({});
-                  }}
-                >
-                  {CATEGORIAS.map((cat, idx) => (
-                    <option key={idx} value={idx}>{cat.nome}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-
+            {/* O Nome da Ginasta agora vem primeiro */}
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Nome da Ginasta</label>
               <input 
                 type="text" 
                 list="lista-ginastas"
                 value={ginasta}
-                onChange={(e) => setGinasta(e.target.value)}
+                onChange={handleMudarGinasta}
                 className={`w-full border-2 rounded-xl p-3 focus:outline-none transition ${
-                  ginasta && ginastasList.length > 0 && !ginastasList.includes(ginasta) 
+                  ginasta && nomesGinastas.length > 0 && !nomesGinastas.includes(ginasta) 
                   ? 'border-red-400 bg-red-50' 
                   : 'border-gray-200 focus:border-[#e71d73] bg-gray-50 focus:bg-white'
                 }`}
@@ -193,71 +203,85 @@ export default function App() {
                 disabled={loading}
               />
               <datalist id="lista-ginastas">
-                {ginastasList.map((nome, idx) => (
+                {nomesGinastas.map((nome, idx) => (
                   <option key={idx} value={nome} />
                 ))}
               </datalist>
-              {ginasta && ginastasList.length > 0 && !ginastasList.includes(ginasta) && (
+              {ginasta && nomesGinastas.length > 0 && !nomesGinastas.includes(ginasta) && (
                 <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1">
                   <AlertCircle size={12} /> Selecione um nome válido da lista.
                 </p>
               )}
             </div>
+
+            {/* A Categoria bloqueada automaticamente */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Categoria (Bloqueada)</label>
+              <div className={`w-full flex items-center justify-between border-2 rounded-xl p-3 font-bold ${categoria ? 'bg-pink-50 border-[#e71d73] text-[#e71d73]' : 'bg-gray-100 border-gray-200 text-gray-400'}`}>
+                <span>
+                  {categoria ? categoria.nome : 'Aguardando seleção da ginasta...'}
+                </span>
+                <Lock size={18} className={categoria ? "text-[#e71d73]" : "text-gray-400"} />
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Avaliação */}
-        <section className="space-y-4">
-          <h2 className="font-bold text-[#e71d73] text-lg px-2 flex justify-between items-end">
-            Série Obrigatória
-            <span className="text-sm font-normal text-gray-500">{categoria.elementos.length} elementos</span>
-          </h2>
-          
-          {categoria.elementos.map((elemento, index) => (
-            <div key={index} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-              <p className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                <span className="bg-pink-100 text-[#e71d73] w-6 h-6 rounded-full flex items-center justify-center text-xs">
-                  {index + 1}
-                </span>
-                {elemento}
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {OPTIONS.map(opt => {
-                  const isSelected = notas[elemento] === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      onClick={() => handleNota(elemento, opt.value)}
-                      className={`p-2 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center justify-center gap-1 min-h-[60px] ${
-                        isSelected ? opt.active : opt.color
-                      }`}
-                    >
-                      {isSelected && <Check size={16} />}
-                      <span className="text-center leading-tight">{opt.label}</span>
-                    </button>
-                  );
-                })}
+        {/* Avaliação só aparece se a categoria estiver liberada */}
+        {categoria && (
+          <section className="space-y-4 animate-in fade-in duration-300">
+            <h2 className="font-bold text-[#e71d73] text-lg px-2 flex justify-between items-end">
+              Série Obrigatória
+              <span className="text-sm font-normal text-gray-500">{categoria.elementos.length} elementos</span>
+            </h2>
+            
+            {categoria.elementos.map((elemento, index) => (
+              <div key={index} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <p className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <span className="bg-pink-100 text-[#e71d73] w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                    {index + 1}
+                  </span>
+                  {elemento}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {OPTIONS.map(opt => {
+                    const isSelected = notas[elemento] === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => handleNota(elemento, opt.value)}
+                        className={`p-2 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center justify-center gap-1 min-h-[60px] ${
+                          isSelected ? opt.active : opt.color
+                        }`}
+                      >
+                        {isSelected && <Check size={16} />}
+                        <span className="text-center leading-tight">{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
-        </section>
+            ))}
+          </section>
+        )}
 
-        {/* Penalidades Extras */}
-        <section className="bg-red-50 p-5 rounded-2xl border-2 border-red-100">
-          <h2 className="font-bold text-red-700 text-lg mb-3">Penalidades Gerais</h2>
-          <label className="flex items-center gap-3 p-3 bg-white rounded-xl border border-red-200 cursor-pointer hover:bg-red-50 transition">
-            <input 
-              type="checkbox" 
-              checked={saidaArea} 
-              onChange={(e) => setSaidaArea(e.target.checked)}
-              className="w-6 h-6 text-red-600 rounded border-gray-300 focus:ring-red-500" 
-            />
-            <span className="font-medium text-gray-800">Saída da área de apresentação (-1.00)</span>
-          </label>
-        </section>
+        {categoria && (
+          <section className="bg-red-50 p-5 rounded-2xl border-2 border-red-100 animate-in fade-in duration-300">
+            <h2 className="font-bold text-red-700 text-lg mb-3">Penalidades Gerais</h2>
+            <label className="flex items-center gap-3 p-3 bg-white rounded-xl border border-red-200 cursor-pointer hover:bg-red-50 transition">
+              <input 
+                type="checkbox" 
+                checked={saidaArea} 
+                onChange={(e) => setSaidaArea(e.target.checked)}
+                className="w-6 h-6 text-red-600 rounded border-gray-300 focus:ring-red-500" 
+              />
+              <span className="font-medium text-gray-800">Saída da área de apresentação (-1.00)</span>
+            </label>
+          </section>
+        )}
       </main>
 
-      {/* Barra de Rodapé / Confirmação Fixa */}
+      {/* Barra de Rodapé só ativa com categoria selecionada */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
         <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-center sm:text-left flex-1">
@@ -269,9 +293,9 @@ export default function App() {
           
           <button 
             onClick={handleSubmit}
-            disabled={enviando}
+            disabled={enviando || !categoria}
             className={`w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all text-white ${
-              enviando ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 shadow-lg hover:shadow-green-500/30'
+              enviando || !categoria ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 shadow-lg hover:shadow-green-500/30'
             }`}
           >
             {enviando ? 'Enviando...' : (
@@ -284,7 +308,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Alerta de Sucesso Overlay */}
       {sucesso && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in duration-300">
@@ -296,7 +319,6 @@ export default function App() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
