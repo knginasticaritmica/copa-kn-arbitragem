@@ -112,8 +112,7 @@ export default function App() {
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
           <div className="flex justify-center mb-6">
             {/* Logo na tela de Login */}
-            <img ="/logo-kn.png" alt="KN Ginástica Rítmica" className="h-20 w-auto object-contain bg-white rounded-lg" />
-          </div>
+            <img src="https://i.postimg.cc/t4d1S1Qz/logo-kn.png" alt="KN Ginástica Rítmica" className="h-24 w-auto object-contain bg-white rounded-lg p-2" />
           <h1 className="text-2xl font-bold text-center text-[#e71d73] mb-6">Acesso da Arbitragem</h1>
           <form onSubmit={(e) => { e.preventDefault(); const val = e.target.nome.value; if(val) setArbitro(val); }}>
             <label className="block text-sm font-medium text-gray-700 mb-2">Qual é o seu nome (Árbitro)?</label>
