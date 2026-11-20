@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Check, User, Send, AlertCircle, ChevronDown, LogOut, ShieldCheck } from 'lucide-react';
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzB9LxmFjOicGAPZS8qqOwqUepQlcem1tdAQik_A_PIktd2snQAcUQK3AYQYMnxnW2BIA/exec';
@@ -139,22 +139,76 @@ const OPTIONS = [
   { label: 'Não Executou (-1.0)', value: 1.0, color: 'bg-gray-200 text-gray-800 border-gray-400', active: 'bg-gray-800 text-white border-gray-900' }
 ];
 
-export default function App() {
+const STORAGE_KEY_ARBITRO = 'copa_kn_arbitro_ativo';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('Erro recuperado na interface:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-pink-50 flex items-center justify-center p-4">
+          <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
+            <h2 className="text-xl font-bold text-[#e71d73] mb-2">A tela precisou ser reiniciada</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Seu acesso de árbitro foi preservado. Clique abaixo para voltar imediatamente à ficha.
+            </p>
+            <button
+              type="button"
+              onClick={() => this.setState({ hasError: false })}
+              className="w-full bg-[#e71d73] text-white p-3 rounded-xl font-bold hover:bg-pink-700 transition"
+            >
+              Voltar para a Arbitragem
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function ArbitragemApp() {
   const [ginasta, setGinasta] = useState('');
-  const [arbitro, setArbitro] = useState('');
+  const [arbitro, setArbitro] = useState(() => {
+    try {
+      return sessionStorage.getItem(STORAGE_KEY_ARBITRO) || '';
+    } catch {
+      return '';
+    }
+  });
   const [loginInput, setLoginInput] = useState('');
   const [erroLogin, setErroLogin] = useState('');
-  const [categoria, setCategoria] = useState(CATEGORIAS[0]);
+  const [categoriaIndex, setCategoriaIndex] = useState(0);
   const [notas, setNotas] = useState({});
   const [saidaArea, setSaidaArea] = useState(false);
   const [loading, setLoading] = useState(true);
   const [ginastasData, setGinastasData] = useState({});
   const [arbitrosList, setArbitrosList] = useState([]);
   const [enviando, setEnviando] = useState(false);
-  const [sucesso, setSucesso] = useState(false);
+  const [ultimoRegistro, setUltimoRegistro] = useState(null);
+
+  const timeoutRef = useRef(null);
+  const ginastaInputRef = useRef(null);
+
+  const categoria = CATEGORIAS[categoriaIndex] || CATEGORIAS[0];
 
   useEffect(() => {
     carregarDadosPlanilha();
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, []);
 
   const carregarDadosPlanilha = async () => {
@@ -162,9 +216,9 @@ export default function App() {
       const response = await fetch(SCRIPT_URL, { redirect: 'follow' });
       const data = await response.json();
       setGinastasData(data.ginastas || {});
-      setArbitrosList(data.arbitros || []);
+      setArbitrosList(Array.isArray(data.arbitros) ? data.arbitros : []);
     } catch (error) {
-      console.error("Erro ao carregar dados da planilha", error);
+      console.error('Erro ao carregar dados da planilha', error);
     } finally {
       setLoading(false);
     }
@@ -182,13 +236,17 @@ export default function App() {
       return;
     }
 
-    // Compara ignorando maiúsculas/minúsculas para evitar erro de teclado no celular
     const arbitroAutorizado = arbitrosList.find(
-      (item) => item.trim().toLowerCase() === digitado.toLowerCase()
+      (item) => String(item).trim().toLowerCase() === digitado.toLowerCase()
     );
 
     if (arbitroAutorizado) {
       setArbitro(arbitroAutorizado);
+      try {
+        sessionStorage.setItem(STORAGE_KEY_ARBITRO, arbitroAutorizado);
+      } catch {
+        // Ignora se o navegador bloquear sessionStorage
+      }
       setErroLogin('');
       setLoginInput('');
     } else {
@@ -196,42 +254,71 @@ export default function App() {
     }
   };
 
+  const handleLogout = () => {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY_ARBITRO);
+    } catch {
+      // Ignora erro de storage
+    }
+    setArbitro('');
+    setGinasta('');
+    setNotas({});
+    setSaidaArea(false);
+    setUltimoRegistro(null);
+  };
+
+  const fecharConfirmacao = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setUltimoRegistro(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (ginastaInputRef.current) {
+      ginastaInputRef.current.focus();
+    }
+  };
+
   const handleNota = (elemento, valor) => {
-    setNotas(prev => ({ ...prev, [elemento]: valor }));
+    setNotas((prev) => ({ ...prev, [elemento]: valor }));
   };
 
   const calcularDeducao = () => {
     let total = 0;
-    Object.values(notas).forEach(v => { total += v; });
+    Object.values(notas).forEach((v) => {
+      total += Number(v) || 0;
+    });
     if (saidaArea) total += 1.0;
     return Number(total.toFixed(2));
   };
 
+  const categoriaPlanilhaDaGinasta =
+    ginasta && ginastasData[ginasta] ? String(ginastasData[ginasta]).trim() : '';
+
   const categoriaDivergente =
-    ginasta &&
-    ginastasData[ginasta] &&
-    ginastasData[ginasta].trim().toLowerCase() !== categoria.nome.trim().toLowerCase();
+    Boolean(categoriaPlanilhaDaGinasta) &&
+    categoriaPlanilhaDaGinasta.toLowerCase() !== categoria.nome.trim().toLowerCase();
 
   const handleSubmit = async () => {
-    if (!ginasta) return alert("Selecione a ginasta!");
+    if (enviando) return;
 
-    if (nomesGinastas.length > 0 && !nomesGinastas.includes(ginasta)) {
-      return alert("⚠️ Atenção: Selecione um nome exato da lista.");
+    const nomeGinasta = ginasta.trim();
+    if (!nomeGinasta) return alert('Selecione a ginasta!');
+
+    if (nomesGinastas.length > 0 && !nomesGinastas.includes(nomeGinasta)) {
+      return alert('⚠️ Atenção: Selecione um nome exato da lista.');
     }
 
-    if (ginastasData[ginasta]) {
-      const categoriaReal = ginastasData[ginasta].trim().toLowerCase();
-      const categoriaSelecionada = categoria.nome.trim().toLowerCase();
-
-      if (categoriaReal !== categoriaSelecionada) {
+    if (categoriaPlanilhaDaGinasta) {
+      if (categoriaPlanilhaDaGinasta.toLowerCase() !== categoria.nome.trim().toLowerCase()) {
         return alert(
-          `⚠️ Categoria Incorreta!\n\nA ginasta "${ginasta}" pertence à categoria "${ginastasData[ginasta]}".\nAltere o campo de categoria acima antes de registrar a nota.`
+          `⚠️ Categoria Incorreta!\n\nA ginasta "${nomeGinasta}" pertence à categoria "${categoriaPlanilhaDaGinasta}".\nAltere o campo de categoria acima antes de registrar a nota.`
         );
       }
     }
 
     if (Object.keys(notas).length !== categoria.elementos.length) {
-      return alert("Preencha a nota de todos os elementos antes de enviar.");
+      return alert('Preencha a nota de todos os elementos antes de enviar.');
     }
 
     setEnviando(true);
@@ -241,30 +328,40 @@ export default function App() {
     const payload = {
       timestamp: new Date().toLocaleString('pt-BR'),
       arbitro,
-      ginasta,
+      ginasta: nomeGinasta,
       categoria: categoria.nome,
       notaFinal: notaFinalCalculada,
       deducaoTotal: deducao.toFixed(2),
-      saidaDeArea: saidaArea ? "Sim (-1.0)" : "Não",
+      saidaDeArea: saidaArea ? 'Sim (-1.0)' : 'Não',
       detalhesDeducoes: notas
     };
 
     try {
       await fetch(SCRIPT_URL, {
         method: 'POST',
+        redirect: 'follow',
         body: JSON.stringify(payload),
         headers: { 'Content-Type': 'text/plain;charset=utf-8' }
       });
-      setSucesso(true);
-      setTimeout(() => {
-        setSucesso(false);
-        setGinasta('');
-        setNotas({});
-        setSaidaArea(false);
-        window.scrollTo(0, 0);
-      }, 3000);
+
+      // Já limpa a ficha imediatamente para a próxima ginasta mantendo o árbitro e a categoria
+      setGinasta('');
+      setNotas({});
+      setSaidaArea(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      setUltimoRegistro({
+        ginasta: nomeGinasta,
+        notaFinal: notaFinalCalculada
+      });
+
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        setUltimoRegistro(null);
+      }, 2000);
     } catch (error) {
-      alert("Erro ao enviar dados. Verifique a conexão.");
+      console.error('Erro ao enviar nota:', error);
+      alert('Erro ao enviar dados. Verifique a conexão e tente novamente.');
     } finally {
       setEnviando(false);
     }
@@ -272,7 +369,7 @@ export default function App() {
 
   if (!arbitro) {
     return (
-      <div className="min-h-screen bg-pink-50 flex items-center justify-center p-4">
+      <div translate="no" className="notranslate min-h-screen bg-pink-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
           <div className="flex justify-center mb-6">
             <img
@@ -283,7 +380,8 @@ export default function App() {
           </div>
           <h1 className="text-2xl font-bold text-center text-[#e71d73] mb-2">Acesso da Arbitragem</h1>
           <p className="text-sm text-center text-gray-500 mb-6 flex items-center justify-center gap-1">
-            <ShieldCheck size={16} className="text-[#e71d73]" /> Acesso restrito a árbitros cadastrados
+            <ShieldCheck size={16} className="text-[#e71d73]" />
+            <span>Acesso restrito a árbitros cadastrados</span>
           </p>
           <form onSubmit={handleLogin}>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -308,7 +406,8 @@ export default function App() {
             />
             {erroLogin && (
               <p className="text-red-500 text-xs mt-2 font-medium flex items-center gap-1">
-                <AlertCircle size={14} /> {erroLogin}
+                <AlertCircle size={14} />
+                <span>{erroLogin}</span>
               </p>
             )}
             <button
@@ -320,7 +419,9 @@ export default function App() {
                   : 'bg-[#e71d73] hover:bg-pink-700'
               }`}
             >
-              {loading ? 'Validando conexão...' : 'Entrar'}
+              <span key={loading ? 'loading' : 'ready'}>
+                {loading ? 'Validando conexão...' : 'Entrar'}
+              </span>
             </button>
           </form>
         </div>
@@ -329,7 +430,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-800">
+    <div translate="no" className="notranslate min-h-screen bg-gray-50 pb-28 font-sans text-gray-800">
       <header className="bg-[#e71d73] text-white p-4 shadow-md sticky top-0 z-20 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="bg-white p-1 rounded-lg shadow-sm">
@@ -340,7 +441,8 @@ export default function App() {
             />
           </div>
           <h1 className="text-xl font-bold leading-tight">
-            Copa <span className="text-white">KN</span><br />
+            Copa <span className="text-white">KN</span>
+            <br />
             <span className="text-sm font-normal text-pink-200">Arbitragem</span>
           </h1>
         </div>
@@ -350,12 +452,8 @@ export default function App() {
             <span className="text-sm font-medium truncate max-w-[110px]">{arbitro}</span>
           </div>
           <button
-            onClick={() => {
-              setArbitro('');
-              setGinasta('');
-              setNotas({});
-              setSaidaArea(false);
-            }}
+            type="button"
+            onClick={handleLogout}
             title="Sair"
             className="p-1.5 rounded-lg bg-pink-700/60 hover:bg-pink-800 transition"
           >
@@ -367,7 +465,8 @@ export default function App() {
       <main className="max-w-3xl mx-auto p-4 space-y-6">
         <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
           <h2 className="font-bold text-[#e71d73] text-lg mb-4 flex items-center gap-2">
-            <User size={20} /> Identificação
+            <User size={20} />
+            <span>Identificação</span>
           </h2>
 
           <div className="space-y-4">
@@ -380,21 +479,27 @@ export default function App() {
                       ? 'border-red-400 bg-red-50 text-red-700'
                       : 'border-gray-200 bg-gray-50 focus:border-[#e71d73] focus:bg-white'
                   }`}
-                  value={CATEGORIAS.findIndex(c => c.nome === categoria.nome)}
+                  value={categoriaIndex}
                   onChange={(e) => {
-                    setCategoria(CATEGORIAS[Number(e.target.value)]);
-                    setNotas({});
+                    const novoIndice = Number(e.target.value);
+                    if (!Number.isNaN(novoIndice) && CATEGORIAS[novoIndice]) {
+                      setCategoriaIndex(novoIndice);
+                      setNotas({});
+                    }
                   }}
                 >
                   {CATEGORIAS.map((cat, idx) => (
-                    <option key={cat.nome} value={idx}>{cat.nome}</option>
+                    <option key={cat.nome} value={idx}>
+                      {cat.nome}
+                    </option>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" />
               </div>
               {categoriaDivergente && (
                 <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1">
-                  <AlertCircle size={12} /> Atenção: esta ginasta está cadastrada na categoria "{ginastasData[ginasta]}".
+                  <AlertCircle size={12} />
+                  <span>Atenção: esta ginasta está cadastrada na categoria "{categoriaPlanilhaDaGinasta}".</span>
                 </p>
               )}
             </div>
@@ -402,6 +507,7 @@ export default function App() {
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Nome da Ginasta</label>
               <input
+                ref={ginastaInputRef}
                 type="text"
                 list="lista-ginastas"
                 value={ginasta}
@@ -411,7 +517,7 @@ export default function App() {
                     ? 'border-red-400 bg-red-50'
                     : 'border-gray-200 focus:border-[#e71d73] bg-gray-50 focus:bg-white'
                 }`}
-                placeholder={loading ? "Carregando planilha..." : "Digite para buscar ou selecione..."}
+                placeholder={loading ? 'Carregando planilha...' : 'Digite para buscar ou selecione...'}
                 disabled={loading}
               />
               <datalist id="lista-ginastas">
@@ -421,7 +527,8 @@ export default function App() {
               </datalist>
               {ginasta && nomesGinastas.length > 0 && !nomesGinastas.includes(ginasta) && (
                 <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1">
-                  <AlertCircle size={12} /> Selecione um nome válido da lista.
+                  <AlertCircle size={12} />
+                  <span>Selecione um nome válido da lista.</span>
                 </p>
               )}
             </div>
@@ -430,7 +537,7 @@ export default function App() {
 
         <section className="space-y-4">
           <h2 className="font-bold text-[#e71d73] text-lg px-2 flex justify-between items-end">
-            Série Obrigatória
+            <span>Série Obrigatória</span>
             <span className="text-sm font-normal text-gray-500">{categoria.elementos.length} elementos</span>
           </h2>
 
@@ -440,7 +547,7 @@ export default function App() {
                 <span className="bg-pink-100 text-[#e71d73] w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0">
                   {index + 1}
                 </span>
-                {elemento}
+                <span>{elemento}</span>
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 {OPTIONS.map((opt, optIdx) => {
@@ -496,27 +603,45 @@ export default function App() {
               enviando ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 shadow-lg hover:shadow-green-500/30'
             }`}
           >
-            {enviando ? 'Enviando...' : (
-              <>
+            {enviando ? (
+              <span key="sending">Enviando...</span>
+            ) : (
+              <span key="idle" className="flex items-center gap-2">
                 <Send size={20} />
-                Registrar Nota
-              </>
+                <span>Registrar Nota</span>
+              </span>
             )}
           </button>
         </div>
       </div>
 
-      {sucesso && (
+      {ultimoRegistro && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in duration-300">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Check size={40} className="text-green-500" />
             </div>
             <h3 className="text-2xl font-black text-gray-800 mb-2">Nota Registrada!</h3>
-            <p className="text-gray-600 font-medium">Os dados foram enviados para a planilha oficial com sucesso.</p>
+            <p className="text-gray-600 font-medium mb-1">{ultimoRegistro.ginasta}</p>
+            <p className="text-2xl font-black text-[#e71d73] mb-6">Nota: {ultimoRegistro.notaFinal}</p>
+            <button
+              type="button"
+              onClick={fecharConfirmacao}
+              className="w-full bg-[#e71d73] text-white py-3 rounded-xl font-bold hover:bg-pink-700 transition"
+            >
+              Próxima Ginasta
+            </button>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <ArbitragemApp />
+    </ErrorBoundary>
   );
 }
